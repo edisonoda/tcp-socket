@@ -24,6 +24,7 @@ def write_file(sha256):
         print(f'ERRO: hash final não confere (esperado {sha256}, obtido {SHA256.hexdigest()})')
         return
 
+    SHA256 = hashlib.sha256()
     name, ext = FILENAME.split('.', 1)
 
     if ext:
