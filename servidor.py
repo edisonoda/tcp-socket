@@ -11,7 +11,7 @@ from datetime import datetime
 SEG_SIZE = BUFFER_SIZE
 
 # Estruturas:
-# - { 'IP:PORT': {...} }
+# - { 'CONN': {...} }
 CLIENTS = {}
 
 # Cria o socket TCP (IPv4, Stream)
@@ -66,6 +66,12 @@ def send_file(conn, filename):
 def start_transfer(filename, conn):
     if not filename:
         msg = f'ERROR 400: {filename} (nome do arquivo invalido)'
+        print(msg)
+        send_frame(conn, msg.encode())
+        return
+    
+    if '\\..' in filename:
+        msg = f'ERROR 403: {filename} (erro de permissao para acessar o arquivo)'
         print(msg)
         send_frame(conn, msg.encode())
         return
