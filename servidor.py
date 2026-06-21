@@ -4,14 +4,15 @@ from socket import *
 import os
 import time
 import threading
+import hashlib
+
 from datetime import datetime
 
 SEG_SIZE = BUFFER_SIZE
+ARQ_CHUNK = 8192
 
 # Estruturas:
-# - { 'filename': [seg0, seg1, ...] }
 # - { 'IP:PORT': {...} }
-FILES = {}
 CLIENTS = {}
 
 # Cria o socket TCP (IPv4, Stream)
@@ -24,28 +25,53 @@ def formatted_client(addr):
 def handle_client(conn, addr):
     create_client(conn, addr)
 
+    while True:
+        msg = conn.recv(2048)
+        handle_req(msg, conn)
+    
+    # remove_client(conn)
+    # print(f'Cliente desconectado: {formatted_client(addr)}')
+    # broadcast_message(f'{formatted_client(addr)} saiu da sala', except_conn=None)
+
 def create_client(conn, addr):
-    CLIENTS[formatted_client(addr)] = {
+    CLIENTS[conn] = {
         'addr': addr,
-        'conn': conn,
+        'name': formatted_client(addr),
         'filename': None
     }
 
     print(f'Cliente conectado: {formatted_client(addr)}')
 
-def segment_file(filename):
+def remove_client(conn):
+    if conn in CLIENTS:
+        CLIENTS.pop(conn)
+    
+    conn.close()
+
+def send_file(conn, filename):
+    sha256 = hashlib.sha256()
+    
     with open(FILE_DIR + filename, 'rb') as f:
         while True:
-            seg = f.read(SEG_SIZE)
-            if not seg:
+            chunk = f.read(ARQ_CHUNK)
+            if not chunk:
                 break
-            yield seg
 
-def start_transfer(filename, addr):
+            sha256.update(chunk)
+
+            for i in range(0, len(chunk), SEG_SIZE):
+                seg = chunk[i:i+SEG_SIZE]
+                conn.send(f'DATA '.encode() + seg)
+                print(f'Enviado: {min(i+SEG_SIZE, len(chunk))}/{len(chunk)} bytes do arquivo {filename}')
+
+    conn.send(f'END '.encode() + sha256.hexdigest().encode())
+    print(f'Arquivo {filename} enviado com sucesso! Hash: {sha256.hexdigest()}')
+
+def start_transfer(filename, conn):
     if not filename:
         msg = f'ERROR 400: {filename} (nome do arquivo invalido)'
         print(msg)
-        S_SOCKET.sendto(msg.encode(), addr)
+        conn.send(msg.encode())
         return
 
     if filename[0] != '/':
@@ -54,35 +80,32 @@ def start_transfer(filename, addr):
     if not os.path.isfile(FILE_DIR + filename):
         msg = f'ERROR 404: Arquivo {filename} nao encontrado!'
         print(msg)
-        S_SOCKET.sendto(msg.encode(), addr)
+        conn.send(msg.encode())
         return
 
-    if filename not in FILES.keys():
-        FILES[filename] = list(segment_file(filename))
+    total = os.path.getsize(FILE_DIR + filename)
 
-    total = len(FILES[filename])
+    print(f'Transferência iniciada para {CLIENTS[conn]["name"]}: {filename}')
+    conn.send(f'START {total}'.encode())
+    
+    send_file(conn, filename)
 
-    print(f'Transferência iniciada para {formatted_client(addr)}: {filename}')
-    S_SOCKET.sendto(f'START {total}'.encode(), addr)
+def handle_req(msg, conn):
+    action, args = parse_msg(msg)
+    action = action.decode()
+    args = [arg.decode() for arg in args]
 
-    # Send
+    if action == 'GET':
+        filename = args[0] if args else None
+        start_transfer(filename, conn)
 
-# def handle_req(msg, addr):
-#     action, args = parse_msg(msg)
-#     action = action.decode()
-#     args = [arg.decode() for arg in args]
+    # elif action == 'ACK':
+    #     seq = int(args[0]) if args else None
+    #     handle_ack(addr, seq)
 
-#     if action == 'GET':
-#         filename = args[0] if args else None
-#         start_transfer(filename, addr)
-
-#     elif action == 'ACK':
-#         seq = int(args[0]) if args else None
-#         handle_ack(addr, seq)
-
-#     elif action == 'NACK':
-#         seq = int(args[0]) if args else None
-#         handle_nack(addr, seq)
+    # elif action == 'NACK':
+    #     seq = int(args[0]) if args else None
+    #     handle_nack(addr, seq)
 
 def accept_clients():
     while True:

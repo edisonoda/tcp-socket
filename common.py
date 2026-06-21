@@ -3,10 +3,10 @@ import hashlib
 # Padronização das ações:
 # - GET arquivo.ext
 # - START size
-# - DATA seq checksum bytes
+# - DATA bytes
 # - (N)ACK seq
 # - ERROR msg
-# - END
+# - END sha256
 
 S_IP = '127.0.0.1'
 S_PORT = 2000

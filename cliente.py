@@ -3,6 +3,8 @@ from socket import *
 from datetime import datetime
 
 import random
+import threading
+import hashlib
 
 SERVER = (S_IP, S_PORT)
 
@@ -12,10 +14,16 @@ FILENAME = '/diagrama.jpg'
 
 TOTAL_SEGS = 0
 
-# Dict para receber fora de ordem/com perdas
-RECEIVED = {}
+RECEIVED = []
+SHA256 = hashlib.sha256()
 
-def write_file():
+def write_file(sha256):
+    global SHA256
+
+    if sha256 != SHA256.hexdigest():
+        print(f'ERRO: hash final não confere (esperado {sha256}, obtido {SHA256.hexdigest()})')
+        return
+
     name, ext = FILENAME.split('.', 1)
 
     if ext:
@@ -24,44 +32,32 @@ def write_file():
         save_name = f'{FILE_DIR}{name}_recebido_{datetime.now().isoformat()}'
 
     with open(save_name, 'wb') as f:
-        for seq in sorted(RECEIVED.keys()):
-            f.write(RECEIVED[seq])
+        for seq in RECEIVED:
+            f.write(seq)
 
-# Estrutura: DATA seq checksum bytes
-def receive_segment(args):
-    if len(args) < 3:
-        print(f'[{datetime.now().time().isoformat()}] Erro (pacote truncado | argumentos insuficientes) no segmento {seq + 1}')
-        C_SOCKET.sendto(f'NACK {seq}'.encode(), SERVER)
-        return
-    
-    seq, cs = args[:2]
-    seq = int(seq.decode())
-    cs = cs.decode()
+def receive_segment(data):
+    global SHA256
+    SHA256.update(data)
+    RECEIVED.append(data)
+    print(f'[{datetime.now().time().isoformat()}] Recebido: {len(RECEIVED)}/{TOTAL_SEGS}')
 
-    data = args[2]
-
-    if cs != checksum(data):
-        print(f'[{datetime.now().time().isoformat()}] Erro (checksum) no segmento {seq + 1}')
-        C_SOCKET.sendto(f'NACK {seq}'.encode(), SERVER)
-    else:
-        print(f'[{datetime.now().time().isoformat()}] Recebido: {seq + 1}/{TOTAL_SEGS}')
-        RECEIVED[seq] = data
-        C_SOCKET.sendto(f'ACK {seq}'.encode(), SERVER)
-
-def handle_res(res, addr):
+def handle_server():
+    res = C_SOCKET.recv(2048)
     action, args = parse_msg(res)
     action = action.decode()
+
+    print(f'[{datetime.now().time().isoformat()}] Resposta do servidor: {action}')
 
     if action == 'START':
         global TOTAL_SEGS
         TOTAL_SEGS = int(args[0].decode())
     elif action == 'DATA':
-        receive_segment(args)
+        receive_segment(args[0])
     elif action == 'ERROR':
         print(f'ERROR {" ".join(arg.decode() for arg in args)}')
     elif action == 'END':
         print('Finalizado!')
-        write_file()
+        write_file(args[0].decode())
         return True
     
     return False
@@ -70,12 +66,23 @@ def handle_res(res, addr):
 
 def main():
     C_SOCKET.connect(SERVER)
-    end = False
 
-    # while not end:
+    threading.Thread(target=handle_server, args=()).start()
 
-    # Encerra a conexão
-    # C_SOCKET.close()
+    try:
+        while True:
+            cmd = input('> ').strip()
+            if not cmd:
+                continue
+
+            C_SOCKET.sendall(cmd.encode())
+
+            if cmd.upper() == 'SAIR':
+                break
+    except KeyboardInterrupt:
+        C_SOCKET.sendall('SAIR'.encode())
+    finally:
+        C_SOCKET.close()
 
 if __name__ == "__main__":
     main()
