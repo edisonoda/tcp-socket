@@ -42,25 +42,27 @@ def receive_segment(data):
     print(f'[{datetime.now().time().isoformat()}] Recebido: {len(RECEIVED)}/{TOTAL_SEGS}')
 
 def handle_server():
-    res = C_SOCKET.recv(2048)
-    action, args = parse_msg(res)
-    action = action.decode()
+    while True:
+        cmd, data = recv_frame(C_SOCKET)
+        if cmd is None:
+            print('Conexao encerrada pelo servidor.')
+            break
 
-    print(f'[{datetime.now().time().isoformat()}] Resposta do servidor: {action}')
+        action, args = parse_msg(cmd)
+        action = action.decode()
 
-    if action == 'START':
-        global TOTAL_SEGS
-        TOTAL_SEGS = int(args[0].decode())
-    elif action == 'DATA':
-        receive_segment(args[0])
-    elif action == 'ERROR':
-        print(f'ERROR {" ".join(arg.decode() for arg in args)}')
-    elif action == 'END':
-        print('Finalizado!')
-        write_file(args[0].decode())
-        return True
-    
-    return False
+        print(f'[{datetime.now().time().isoformat()}] Resposta do servidor: {action}')
+
+        if action == 'START':
+            global TOTAL_SEGS
+            TOTAL_SEGS = int(args[0].decode())
+        elif action == 'DATA':
+            receive_segment(data)
+        elif action == 'ERROR':
+            print(f'ERROR {" ".join(arg.decode() for arg in args)}')
+        elif action == 'END':
+            print('Finalizado!')
+            write_file(data.decode())
 
     # FILENAME = name if name[0] == '/' else '/' + name
 
@@ -75,12 +77,12 @@ def main():
             if not cmd:
                 continue
 
-            C_SOCKET.sendall(cmd.encode())
+            send_frame(C_SOCKET, cmd.encode())
 
             if cmd.upper() == 'SAIR':
                 break
     except KeyboardInterrupt:
-        C_SOCKET.sendall('SAIR'.encode())
+        send_frame(C_SOCKET, b'SAIR')
     finally:
         C_SOCKET.close()
 
