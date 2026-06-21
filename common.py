@@ -12,16 +12,10 @@ S_IP = '127.0.0.1'
 S_PORT = 2000
 
 FILE_DIR = 'files'
-
-WND_SIZE = 20
-
-TIMEOUT = 3
-
-def checksum(data):
-    return hashlib.md5(data).hexdigest()
+BUFFER_SIZE = 1024
 
 def parse_msg(msg):
-    parts = msg.split(b' ', 3)
+    parts = msg.split(b' ', 2)
     if not parts:
         return None, None
     
