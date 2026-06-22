@@ -23,10 +23,10 @@ def handle_client(conn, addr):
     connected = True
 
     while connected:
-        msg, _ = recv_frame(conn)
-        if msg is None:
+        cmd, data = recv_frame(conn)
+        if cmd is None:
             break
-        connected = handle_req(msg, conn)
+        connected = handle_req(cmd, data, conn)
 
     remove_client(conn)
     print(f'Cliente desconectado: {formatted_client(addr)}')
@@ -62,48 +62,46 @@ def send_file(conn, filename):
     print(f'Arquivo {filename} enviado com sucesso! Hash: {sha256.hexdigest()}')
 
 def start_transfer(filename, conn):
-    if not filename:
-        msg = f'ERROR 400: {filename} (nome do arquivo invalido)'
-        print(msg)
-        send_frame(conn, msg.encode())
+    if '\\..' in filename or '/..' in filename:
+        msg = f'403: {filename} (erro de permissao para acessar o arquivo)'
+        print('ERROR ' + msg)
+        send_frame(conn, b'ERROR', msg.encode())
         return
     
-    if '\\..' in filename:
-        msg = f'ERROR 403: {filename} (erro de permissao para acessar o arquivo)'
-        print(msg)
-        send_frame(conn, msg.encode())
+    if not filename:
+        msg = f'400: {filename} (nome do arquivo invalido)'
+        print('ERROR ' + msg)
+        send_frame(conn, b'ERROR', msg.encode())
         return
 
     if filename[0] != '/':
         filename = '/' + filename
     
     if not os.path.isfile(FILE_DIR + filename):
-        msg = f'ERROR 404: Arquivo {filename} nao encontrado!'
-        print(msg)
-        send_frame(conn, msg.encode())
+        msg = f'404: Arquivo {filename} nao encontrado!'
+        print('ERROR ' + msg)
+        send_frame(conn, b'ERROR', msg.encode())
         return
 
     total = os.path.getsize(FILE_DIR + filename)
 
     print(f'Transferência iniciada para {CLIENTS[conn]["name"]}: {filename}')
-    send_frame(conn, f'START {total}'.encode())
+    send_frame(conn, b'START', f'{total}'.encode())
     
     send_file(conn, filename)
 
-def handle_req(msg, conn):
-    action, args = parse_msg(msg)
-    action = action.decode().upper()
-    args = [arg.decode() for arg in args]
+def handle_req(cmd, data, conn):
+    action = cmd.decode().upper()
 
     if action == 'EXIT':
         send_frame(conn, b'BYE')
         return False
 
     if action == 'GET':
-        filename = args[0] if args else None
+        filename = data.decode() if data else None
         start_transfer(filename, conn)
     elif action == 'CHAT':
-        message = f'{CLIENTS[conn]['name']}: {' '.join(args) if args else ''}'
+        message = f'{CLIENTS[conn]['name']}: {data.decode() if data else ""}'
         broadcast_message(message)
     
     return True
@@ -111,7 +109,7 @@ def handle_req(msg, conn):
 def broadcast_message(message):
     for conn, info in list(CLIENTS.items()):
         try:
-            send_frame(conn, f'CHAT {message}'.encode())
+            send_frame(conn, b'CHAT', message.encode())
         except Exception:
             remove_client(conn)
 

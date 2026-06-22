@@ -52,18 +52,17 @@ def handle_server():
             C_SOCKET.close()
             break
 
-        action, args = parse_msg(cmd)
-        action = action.decode().upper()
+        action = cmd.decode().upper()
 
         if action == 'START':
             global TOTAL_SEGS
-            TOTAL_SEGS = int(args[0].decode()) / BUFFER_SIZE
+            TOTAL_SEGS = int(data.decode()) / BUFFER_SIZE
         elif action == 'DATA':
             receive_segment(data)
         elif action == 'ERROR':
-            print(f'ERROR {" ".join(arg.decode() for arg in args)}\n> ', end='')
+            print(f'ERROR {data.decode()}\n> ', end='')
         elif action == 'CHAT':
-            print(f'[{datetime.now().time().isoformat()}] {" ".join(arg.decode() for arg in args)}\n> ', end='')
+            print(f'[{datetime.now().time().isoformat()}] {data.decode()}\n> ', end='')
         elif action == 'END':
             write_file(data.decode())
 
@@ -80,7 +79,11 @@ def main():
             if not cmd:
                 continue
 
-            send_frame(C_SOCKET, cmd.encode())
+            parts = cmd.split(" ", 1)
+            action = parts[0].upper().encode()
+
+            payload = (parts[1].encode() if len(parts) > 1 else b'')
+            send_frame(C_SOCKET, action, payload)
 
             if cmd.upper() == 'EXIT':
                 break

@@ -13,13 +13,6 @@ S_PORT = 2000
 FILE_DIR = 'files'
 BUFFER_SIZE = 8192
 
-def parse_msg(msg):
-    parts = msg.split(b' ', 2)
-    if not parts:
-        return None, None
-    
-    return parts[0], parts[1:]
-
 def recv_exact(sock, size):
     data = bytearray()
     while len(data) < size:
