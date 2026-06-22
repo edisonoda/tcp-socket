@@ -64,7 +64,6 @@ def create_client(conn, addr):
     CLIENTS[conn] = {
         'addr': addr,
         'name': formatted_client(addr),
-        'filename': None
     }
 
     print(f'Cliente conectado: {formatted_client(addr)}')
