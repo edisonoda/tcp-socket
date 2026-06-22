@@ -8,8 +8,6 @@ import hashlib
 
 from datetime import datetime
 
-SEG_SIZE = BUFFER_SIZE
-
 CLIENTS = {}
 
 S_SOCKET = socket(AF_INET, SOCK_STREAM)
