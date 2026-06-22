@@ -2,7 +2,7 @@ import hashlib
 
 # Padronização das ações:
 # - GET arquivo.ext
-# - START size
+# - START filename size
 # - DATA bytes
 # - ERROR msg
 # - END sha256

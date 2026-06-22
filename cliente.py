@@ -55,8 +55,9 @@ def handle_server():
         action = cmd.decode().upper()
 
         if action == 'START':
-            global TOTAL_SEGS
-            TOTAL_SEGS = int(data.decode()) / BUFFER_SIZE
+            global TOTAL_SEGS, FILENAME
+            FILENAME = data.decode().split(" ", 1)[0]
+            TOTAL_SEGS = int(data.decode().split(" ", 1)[1]) / BUFFER_SIZE
         elif action == 'DATA':
             receive_segment(data)
         elif action == 'ERROR':

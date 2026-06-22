@@ -84,7 +84,7 @@ def start_transfer(filename, conn):
     total = os.path.getsize(FILE_DIR + filename)
 
     print(f'Transferência iniciada para {CLIENTS[conn]["name"]}: {filename}')
-    send_frame(conn, b'START', f'{total}'.encode())
+    send_frame(conn, b'START', f'{filename} {total}'.encode())
     
     send_file(conn, filename)
 
