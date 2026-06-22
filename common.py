@@ -4,7 +4,6 @@ import hashlib
 # - GET arquivo.ext
 # - START size
 # - DATA bytes
-# - (N)ACK seq
 # - ERROR msg
 # - END sha256
 
@@ -19,7 +18,6 @@ def parse_msg(msg):
     if not parts:
         return None, None
     
-    # 0: ação, 1-N: outros argumentos
     return parts[0], parts[1:]
 
 def recv_exact(sock, size):
