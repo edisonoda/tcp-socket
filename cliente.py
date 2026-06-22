@@ -47,10 +47,11 @@ def handle_server():
         cmd, data = recv_frame(C_SOCKET)
         if cmd is None:
             print('Conexao encerrada pelo servidor.')
+            C_SOCKET.close()
             break
 
         action, args = parse_msg(cmd)
-        action = action.decode()
+        action = action.decode().upper()
 
         print(f'[{datetime.now().time().isoformat()}] Resposta do servidor: {action}')
 
@@ -61,6 +62,8 @@ def handle_server():
             receive_segment(data)
         elif action == 'ERROR':
             print(f'ERROR {" ".join(arg.decode() for arg in args)}')
+        elif action == 'CHAT':
+            print(f'[{datetime.now().time().isoformat()}] {" ".join(arg.decode() for arg in args)}')
         elif action == 'END':
             print('Finalizado!')
             write_file(data.decode())
@@ -80,12 +83,10 @@ def main():
 
             send_frame(C_SOCKET, cmd.encode())
 
-            if cmd.upper() == 'SAIR':
+            if cmd.upper() == 'EXIT':
                 break
     except KeyboardInterrupt:
-        send_frame(C_SOCKET, b'SAIR')
-    finally:
-        C_SOCKET.close()
+        send_frame(C_SOCKET, b'EXIT')
 
 if __name__ == "__main__":
     main()

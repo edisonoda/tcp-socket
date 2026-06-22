@@ -23,12 +23,13 @@ def formatted_client(addr):
 
 def handle_client(conn, addr):
     create_client(conn, addr)
+    connected = True
 
-    while True:
+    while connected:
         msg, _ = recv_frame(conn)
         if msg is None:
             break
-        handle_req(msg, conn)
+        connected = handle_req(msg, conn)
 
     remove_client(conn)
     print(f'Cliente desconectado: {formatted_client(addr)}')
@@ -94,12 +95,18 @@ def start_transfer(filename, conn):
 
 def handle_req(msg, conn):
     action, args = parse_msg(msg)
-    action = action.decode()
+    action = action.decode().upper()
     args = [arg.decode() for arg in args]
+
+    if action == 'EXIT':
+        send_frame(conn, b'BYE')
+        return False
 
     if action == 'GET':
         filename = args[0] if args else None
         start_transfer(filename, conn)
+    
+    return True
 
     # elif action == 'ACK':
     #     seq = int(args[0]) if args else None
@@ -109,17 +116,31 @@ def handle_req(msg, conn):
     #     seq = int(args[0]) if args else None
     #     handle_nack(addr, seq)
 
+def broadcast_message(message):
+    for conn, info in list(CLIENTS.items()):
+        try:
+            send_frame(conn, f'CHAT {message}'.encode())
+        except Exception:
+            remove_client(conn)
+
 def accept_clients():
     while True:
         conn, addr = S_SOCKET.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
 
+def server_broadcast():
+    while True:
+        message = input().strip()
+        if message:
+            broadcast_message(f'SERVER: {message}')
+
 def main():
     S_SOCKET.bind((S_IP, S_PORT))
     S_SOCKET.listen()
     print(f'Servidor escutando no endereco: {S_IP}:{S_PORT}')
 
+    threading.Thread(target=server_broadcast).start()
     accept_clients()
 
 if __name__ == "__main__":
