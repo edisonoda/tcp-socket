@@ -117,10 +117,10 @@ def accept_clients():
     try:
         while True:
             conn, addr = S_SOCKET.accept()
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
+            thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
             thread.start()
     except KeyboardInterrupt:
-        for conn in CLIENTS:
+        for conn in list(CLIENTS):
             remove_client(conn)
         
         S_SOCKET.close()
@@ -137,7 +137,7 @@ def main():
     print(f'Servidor escutando no endereco: {S_IP}:{S_PORT}')
     print('Digite mensagens para broadcast aos clientes:')
 
-    threading.Thread(target=server_broadcast).start()
+    threading.Thread(target=server_broadcast, daemon=True).start()
     accept_clients()
 
 if __name__ == "__main__":
