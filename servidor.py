@@ -10,11 +10,8 @@ from datetime import datetime
 
 SEG_SIZE = BUFFER_SIZE
 
-# Estruturas:
-# - { 'CONN': {...} }
 CLIENTS = {}
 
-# Cria o socket TCP (IPv4, Stream)
 S_SOCKET = socket(AF_INET, SOCK_STREAM)
 
 def formatted_client(addr):
@@ -105,16 +102,11 @@ def handle_req(msg, conn):
     if action == 'GET':
         filename = args[0] if args else None
         start_transfer(filename, conn)
+    elif action == 'CHAT':
+        message = f'{CLIENTS[conn]['name']}: {' '.join(args) if args else ''}'
+        broadcast_message(message)
     
     return True
-
-    # elif action == 'ACK':
-    #     seq = int(args[0]) if args else None
-    #     handle_ack(addr, seq)
-
-    # elif action == 'NACK':
-    #     seq = int(args[0]) if args else None
-    #     handle_nack(addr, seq)
 
 def broadcast_message(message):
     for conn, info in list(CLIENTS.items()):
@@ -124,14 +116,20 @@ def broadcast_message(message):
             remove_client(conn)
 
 def accept_clients():
-    while True:
-        conn, addr = S_SOCKET.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
+    try:
+        while True:
+            conn, addr = S_SOCKET.accept()
+            thread = threading.Thread(target=handle_client, args=(conn, addr))
+            thread.start()
+    except KeyboardInterrupt:
+        for conn in CLIENTS:
+            remove_client(conn)
+        
+        S_SOCKET.close()
 
 def server_broadcast():
     while True:
-        message = input().strip()
+        message = input('> ').strip()
         if message:
             broadcast_message(f'SERVER: {message}')
 
@@ -139,6 +137,7 @@ def main():
     S_SOCKET.bind((S_IP, S_PORT))
     S_SOCKET.listen()
     print(f'Servidor escutando no endereco: {S_IP}:{S_PORT}')
+    print('Digite mensagens para broadcast aos clientes:')
 
     threading.Thread(target=server_broadcast).start()
     accept_clients()

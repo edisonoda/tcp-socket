@@ -21,10 +21,9 @@ def write_file(sha256):
     global SHA256
 
     if sha256 != SHA256.hexdigest():
-        print(f'ERRO: hash final não confere (esperado {sha256}, obtido {SHA256.hexdigest()})')
+        print(f'ERRO: hash final não confere (esperado {sha256}, obtido {SHA256.hexdigest()})\n> ', end='')
         return
 
-    SHA256 = hashlib.sha256()
     name, ext = FILENAME.split('.', 1)
 
     if ext:
@@ -35,12 +34,15 @@ def write_file(sha256):
     with open(save_name, 'wb') as f:
         for seq in RECEIVED:
             f.write(seq)
+    
+    SHA256 = hashlib.sha256()
+    RECEIVED.clear()
+    print(f'Arquivo salvo como: {save_name} (hash final: {sha256})\n> ', end='')
 
 def receive_segment(data):
     global SHA256
     SHA256.update(data)
     RECEIVED.append(data)
-    print(f'[{datetime.now().time().isoformat()}] Recebido: {len(RECEIVED)}/{TOTAL_SEGS}')
 
 def handle_server():
     while True:
@@ -53,27 +55,24 @@ def handle_server():
         action, args = parse_msg(cmd)
         action = action.decode().upper()
 
-        print(f'[{datetime.now().time().isoformat()}] Resposta do servidor: {action}')
-
         if action == 'START':
             global TOTAL_SEGS
-            TOTAL_SEGS = int(args[0].decode())
+            TOTAL_SEGS = int(args[0].decode()) / BUFFER_SIZE
         elif action == 'DATA':
             receive_segment(data)
         elif action == 'ERROR':
-            print(f'ERROR {" ".join(arg.decode() for arg in args)}')
+            print(f'ERROR {" ".join(arg.decode() for arg in args)}\n> ', end='')
         elif action == 'CHAT':
-            print(f'[{datetime.now().time().isoformat()}] {" ".join(arg.decode() for arg in args)}')
+            print(f'[{datetime.now().time().isoformat()}] {" ".join(arg.decode() for arg in args)}\n> ', end='')
         elif action == 'END':
-            print('Finalizado!')
             write_file(data.decode())
-
-    # FILENAME = name if name[0] == '/' else '/' + name
 
 def main():
     C_SOCKET.connect(SERVER)
 
     threading.Thread(target=handle_server, args=()).start()
+
+    print('Conectado ao servidor. Use os comandos: EXIT, GET <nome>, CHAT <mensagem>')
 
     try:
         while True:
